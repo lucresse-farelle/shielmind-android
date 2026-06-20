@@ -1,0 +1,35 @@
+# Fichiers Android Studio
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# Fichiers APK
+*.apk
+*.ap_
+*.aab
+*.class
+*.dex
+
+# Fichiers logs et temporaires
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# Fichiers de configuration locaux
+.env
+*.properties
+*.keystore
+google-services.json
+
+# Fichiers de build
+/app/build/
+/library/build/
+/artifacts/
