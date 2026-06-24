@@ -1,40 +1,51 @@
 package com.example.shielmind.ui
 
 // ════════════════════════════════════════════════════════
-// À CRÉER DANS : app/src/main/java/com/example/shielmind/ui/ServiceSetupScreen.kt
-//
-// Écran Jetpack Compose simple pour activer le service.
-// Membre 3 (UI) pourra ensuite l'embellir avec son design,
-// la logique fonctionnelle est déjà prête ici.
+// FICHIER : app/src/main/java/com/example/shielmind/ui/ServiceSetupScreen.kt
+// VERSION MISE À JOUR avec la section Device Administrator
 // ════════════════════════════════════════════════════════
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.shielmind.accessibility.AccessibilityHelper
+import com.example.shielmind.admin.DeviceAdminHelper
 
-/**
- * Écran affiché tant que le service n'est pas activé.
- *
- * NOTE KOTLIN/COMPOSE : "@Composable" = annotation qui dit
- * "ceci est un morceau d'interface", similaire à un widget Flutter
- * si tu connais, ou un component React.
- */
 @Composable
 fun ServiceSetupScreen() {
 
     val context = LocalContext.current
 
-    // "remember { mutableStateOf(...) }" = une variable qui, quand
-    // elle change, redessine automatiquement l'écran.
-    // C'est LE concept clé de Compose (équivalent useState en React)
-    var isEnabled by remember {
+    // ── État 1 : Service d'Accessibilité ──────────────────────────────────────
+    var isAccessibilityEnabled by remember {
         mutableStateOf(AccessibilityHelper.isAccessibilityServiceEnabled(context))
+    }
+
+    // ── État 2 : Device Administrator ─────────────────────────────────────────
+    var isDeviceAdmin by remember {
+        mutableStateOf(DeviceAdminHelper.isDeviceAdmin(context))
+    }
+
+    // Launcher Compose pour lancer l'écran d'activation Device Admin
+    // et récupérer le résultat (RESULT_OK = l'utilisateur a accepté)
+    val deviceAdminLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // Après retour du dialog système, on vérifie si c'est bien activé
+        if (result.resultCode == Activity.RESULT_OK) {
+            isDeviceAdmin = DeviceAdminHelper.isDeviceAdmin(context)
+        }
+        // On re-vérifie même si annulé, pour afficher l'état correct
+        isDeviceAdmin = DeviceAdminHelper.isDeviceAdmin(context)
     }
 
     Column(
@@ -46,39 +57,108 @@ fun ServiceSetupScreen() {
     ) {
 
         Text(
-            text = if (isEnabled) "✅ Protection active" else "⚠️ Protection désactivée",
+            text = "Configuration ShieldMind",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-        Text(
-            text = if (isEnabled)
-                "ShieldMind surveille les contenus en arrière-plan."
-            else
-                "Pour protéger votre enfant, activez le service d'accessibilité ShieldMind dans les paramètres Android.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (!isEnabled) {
-            Button(onClick = {
-                AccessibilityHelper.openAccessibilitySettings(context)
-            }) {
-                Text("Activer la protection")
+        // ── SECTION 1 : Accessibilité ──────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isAccessibilityEnabled)
+                    Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = if (isAccessibilityEnabled)
+                        "✅ Service d'accessibilité actif"
+                    else
+                        "⚠️ Service d'accessibilité inactif",
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Permet à ShieldMind d'analyser les textes affichés à l'écran.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (!isAccessibilityEnabled) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = {
+                        AccessibilityHelper.openAccessibilitySettings(context)
+                    }) {
+                        Text("Activer le service")
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Bouton de rafraîchissement : utile car après être revenu
-        // des paramètres Android, on doit re-vérifier l'état
+        // ── SECTION 2 : Device Administrator ──────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isDeviceAdmin)
+                    Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = if (isDeviceAdmin)
+                        "✅ Protection anti-désinstallation active"
+                    else
+                        "⚠️ Protection anti-désinstallation inactive",
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (isDeviceAdmin)
+                        "L'enfant ne peut pas désinstaller ShieldMind sans le code PIN parent."
+                    else
+                        "Sans cette protection, l'enfant peut supprimer ShieldMind librement.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (!isDeviceAdmin) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = {
+                        // Lance le dialog système Android pour activer le mode admin
+                        val intent = DeviceAdminHelper.buildDeviceAdminIntent(context)
+                        deviceAdminLauncher.launch(intent)
+                    }) {
+                        Text("Activer la protection")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Bouton de rafraîchissement ─────────────────────────────────────────
         OutlinedButton(onClick = {
-            isEnabled = AccessibilityHelper.isAccessibilityServiceEnabled(context)
+            isAccessibilityEnabled = AccessibilityHelper.isAccessibilityServiceEnabled(context)
+            isDeviceAdmin = DeviceAdminHelper.isDeviceAdmin(context)
         }) {
             Text("Vérifier à nouveau")
+        }
+
+        // ── Résumé global ──────────────────────────────────────────────────────
+        if (isAccessibilityEnabled && isDeviceAdmin) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B5E20))
+            ) {
+                Text(
+                    text = "🛡️ ShieldMind est entièrement configuré et actif !",
+                    modifier = Modifier.padding(16.dp),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
